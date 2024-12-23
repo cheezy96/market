@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARKET</title>
+    <style>
+        *, *::before, *::after{
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html{
+            color-scheme: dark light;
+        }
+        img{
+            max-width: 220px;
+            aspect-ratio: 1/1;
+            object-fit: contain;
+        }
+        body{
+            font-family: system-ui;
+        }
+        button, input{
+            padding: .5em;
+            font-size: 1.1rem;
+        }
+        main{
+            display: grid;
+            place-content: center;
+            min-height: 100vh;
+            grid-template-columns: repeat(4, 250px);
+            gap: 15px;
+        }
+        .products{
+            display: flex;
+            flex-direction: column;
+        }
+
+        #pop{
+            margin: auto;
+            padding: 1.5em;
+
+            form{
+                input:not(#buyerID, #numberID){
+                    width: 100px;
+                }
+            }
+        }
+
+        #productsNameID, #popoverProductID{
+            text-transform: capitalize;
+        }
+
+        @media (width < 1060px){
+            main{
+                grid-template-columns: repeat(3, 250px);
+            }
+        }
+        @media (width < 790px){
+            main{
+                grid-template-columns: repeat(2, 250px);
+            }
+        }
+        @media (width < 522px){
+            main{
+                grid-template-columns: repeat(1, 250px);
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <main id="main">
+    </main>
+    
+    <div id="pop" popover>
+        <div style="display: flex; gap: 2.2em;">
+            <h1 id="ghostID" hidden>hello</h1>
+            <div>
+                <img id="image">
+                <h2 id="popoverProductID">Bayabas</h2>
+            </div>
+            <form method="dialog" onsubmit="minus()" style="margin-block: auto;">
+                <label for="qtyID">Qty:</label>
+                <input id="qtyID" type="number" step=".01" placeholder="Quantity" onkeyup="autoCompute()" required>
+                <label for="priceID">Price:</label>
+                <input id="priceID" type="number" step=".01" readonly>
+                <div style="display: flex; flex-direction: column; gap: 10px;  margin-top: .75em;">
+                    <label for="buyerID" style="display: block;">Buyer:</label>
+                    <input id="buyerID" type="float" placeholder="Enter name" required>
+                    <label for="numberID">Mobile :</label>
+                    <!-- regex added for restrict character value -->
+                    <input id="numberID" oninput="this.value = this.value.replace(/\D+/g, '')" maxlength="11" placeholder="Phone Number" required> 
+                    <input type="submit" style="margin-left: auto; margin-top: .5rem;">
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        let products;
+        let currentProduct;
+
+        async function refresh(){
+            let response = await fetch("http://localhost/market/api/get-products.php");
+            products = await response.json();
+            console.log(products);
+
+            main.innerHTML = '';
+            for (const product of products) {
+                main.innerHTML += `
+                <div class="products">
+                    <img src="./images/${product.image}.png">
+                    <h2 id="productsNameID">${product.name}</h2>
+                    <h3>Quantity: ${product.qty}</h3>
+                    <h3>Price per kilo: ${product.price} / ${product.unit}</h3>
+                    <button onclick="openPopover(${product.id})">Buy</button>
+                </div>
+                `;
+            }
+        }
+
+        function openPopover(id){
+            qtyID.value = "";
+            buyerID.value = "";
+            numberID.value = "";
+            priceID.value = "";
+            
+            ghostID.innerHTML = id;
+            currentProduct = products.find(product => product.id == id);
+            console.log(currentProduct);
+
+            image.src = `./images/${currentProduct.image}.png`;
+            qtyID.max = currentProduct.qty;
+            popoverProductID.innerHTML = currentProduct.name;
+            
+
+            pop.showPopover();
+            // pop.showModal();
+        }
+
+        async function minus(){
+
+            let id = ghostID.innerHTML;
+            let amount = qtyID.value;
+
+            let name = buyerID.value;
+            let number = numberID.value;
+            let total = priceID.value;
+
+            
+            await fetch(`http://localhost/market/api/minus.php?id=${id}&amount=${amount}`);
+            await fetch(`http://localhost/market/api/save-orders.php?name=${name}&number=${number}&amount=${amount}&total=${total}`);
+
+            alert("Orders added!");
+            pop.hidePopover();
+            refresh();
+        }
+
+        function autoCompute(){
+            priceID.value = qtyID.value * currentProduct.price; 
+        }
+
+
+        refresh();
+    </script>
+</body>
+</html>
